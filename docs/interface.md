@@ -37,7 +37,20 @@ uvx --from git+https://github.com/chezou/petit-cli petit-cli clone-db [OPTIONS] 
   Default: `https://api.treasuredata.com/`
 - `--new-db TEXT`: New database name in destination  
   Default: Same as source database name
+- `--skip-existing`: Skip tables that already exist in destination
+- `--overwrite`: Overwrite existing tables in destination  
+  Note: Cannot be used together with `--skip-existing`
 - `--help`: Show help message and exit
+
+#### Table Handling Behavior
+
+**Default Behavior** (no flags): If a table already exists in the destination database, the operation will skip copying that table and log a warning message.
+
+**With --skip-existing**: Explicitly skip tables that already exist in destination with appropriate logging messages.
+
+**With --overwrite**: Replace existing tables in destination with data from source tables.
+
+**Mutual Exclusion**: The `--skip-existing` and `--overwrite` flags cannot be used together.
 
 #### Environment Variables
 
@@ -55,15 +68,31 @@ uvx --from git+https://github.com/chezou/petit-cli clone-db my_database
 # Clone database with custom name
 uvx --from git+https://github.com/chezou/petit-cli clone-db my_database --new-db my_database_backup
 
+# Skip existing tables during cloning
+uvx --from git+https://github.com/chezou/petit-cli clone-db my_database --skip-existing
+
+# Overwrite existing tables during cloning
+uvx --from git+https://github.com/chezou/petit-cli clone-db my_database --overwrite
+
 # Clone between different Treasure Data instances
 uvx --from git+https://github.com/chezou/petit-cli clone-db my_database \
   --se https://api.treasuredata.com/ \
   --de https://api.treasuredata.co.jp/ \
-  --new-db migrated_database
+  --new-db migrated_database \
+  --overwrite
 
 # Get help
 uvx --from git+https://github.com/chezou/petit-cli clone-db --help
 ```
+
+#### Error Handling
+
+The clone-db command includes enhanced error handling:
+
+- **Source Database Validation**: Verifies that the source database exists and is accessible before starting operations
+- **Destination Access Validation**: Confirms write access to the destination before proceeding
+- **Authentication Errors**: Provides clear error messages for API key or endpoint configuration issues
+- **User-Friendly Messages**: Error messages guide users to check their configuration and credentials
 
 ### 2. td2parquet Command
 

@@ -110,24 +110,33 @@ SOURCE_API_KEY=src_key DEST_API_KEY=dest_key petit-cli clone-db [OPTIONS] DATABA
 - `--se, --source-endpoint TEXT`: Source TD endpoint URL (default: https://api.treasuredata.com/)
 - `--de, --dest-endpoint TEXT`: Destination TD endpoint URL (default: https://api.treasuredata.com/)
 - `--new-db TEXT`: New database name in destination (default: same as source)
+- `--skip-existing`: Skip tables that already exist in destination
+- `--overwrite`: Overwrite existing tables in destination (cannot be used with --skip-existing)
 - `--help`: Show help message
 
 #### Examples
 
 ```bash
-# Clone to same endpoint with different database name
+# Basic database cloning
 SOURCE_API_KEY=key DEST_API_KEY=key petit-cli clone-db prod_data --new-db test_data
+
+# Skip existing tables during cloning
+SOURCE_API_KEY=key DEST_API_KEY=key petit-cli clone-db prod_data --new-db backup_data --skip-existing
+
+# Overwrite existing tables during cloning
+SOURCE_API_KEY=key DEST_API_KEY=key petit-cli clone-db prod_data --new-db backup_data --overwrite
 
 # Clone between different TD instances
 SOURCE_API_KEY=prod_key DEST_API_KEY=dev_key petit-cli clone-db marketing_data \
   --de https://api.treasuredata.co.jp \
   --new-db marketing_data_copy
 
-# Clone to different region
+# Clone to different region with overwrite option
 SOURCE_API_KEY=us_key DEST_API_KEY=eu_key petit-cli clone-db user_data \
   --se https://api.treasuredata.com/ \
   --de https://api.eu01.treasuredata.com/ \
-  --new-db user_data_eu
+  --new-db user_data_eu \
+  --overwrite
 ```
 
 ## Environment Variables
@@ -146,18 +155,13 @@ SOURCE_API_KEY=us_key DEST_API_KEY=eu_key petit-cli clone-db user_data \
 ### td2parquet Features
 
 - **Incremental Processing**: Handles large datasets by processing in configurable chunks
-- **Time-based Filtering**: Export data within specific time ranges
 - **Flexible Output**: Customizable output directory and file naming
 - **Memory Efficient**: Streams data to avoid memory issues with large tables
-- **Progress Tracking**: Visual progress bars for long-running exports
 
 ### clone-db Features
 
 - **Parallel Processing**: Copies multiple tables concurrently for faster cloning
-- **Cross-instance Support**: Clone between different TD regions/endpoints
-- **Database Creation**: Automatically creates destination database if needed
-- **Error Handling**: Skips existing tables and handles connection errors gracefully
-- **Flexible Naming**: Specify different destination database names
+- **Cross-instance Support**: Clone between different TD sites and accounts
 
 ## Performance Considerations
 

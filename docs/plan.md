@@ -8,64 +8,64 @@
 
 #### Enhanced Table Handling Options
 
-- [ ] Add `--skip-existing` flag: Skip tables that already exist in destination
-  - [ ] Implement logic to check existing tables and skip them
-  - [ ] Add appropriate logging messages for skipped tables
-  - [ ] Update help documentation for the new flag
-  - [ ] Add unit tests for skip-existing functionality
+- [x] Add `--skip-existing` flag: Skip tables that already exist in destination
+  - [x] Implement logic to check existing tables and skip them
+  - [x] Add appropriate logging messages for skipped tables
+  - [x] Update help documentation for the new flag
+  - [x] Add unit tests for skip-existing functionality
 
-- [ ] Add `--overwrite` flag: Overwrite existing tables in destination
-  - [ ] Implement logic to overwrite existing tables
-  - [ ] Update `copy_table` function to handle overwrite option
+- [x] Add `--overwrite` flag: Overwrite existing tables in destination
+  - [x] Implement logic to overwrite existing tables
+  - [x] Update `copy_table` function to handle overwrite option
   - [ ] Add confirmation prompt for destructive operations (optional)
-  - [ ] Update help documentation for the new flag
-  - [ ] Add unit tests for overwrite functionality
+  - [x] Update help documentation for the new flag
+  - [x] Add unit tests for overwrite functionality
 
-- [ ] Update default behavior documentation
-  - [ ] Clarify current behavior (error on existing tables)
-  - [ ] Update CLI help text to explain all three options
-  - [ ] Update interface.md with new options
+- [x] Update default behavior documentation
+  - [x] Clarify current behavior (error on existing tables)
+  - [x] Update CLI help text to explain all three options
+  - [x] Update interface.md with new options
 
 #### Enhanced Error Handling and Validation
 
 **Source Database Validation**:
 
-- [ ] Add source database existence check before starting clone operation
-  - [ ] Implement `validate_source_database()` function
-  - [ ] Check if source database exists and is accessible
-  - [ ] Provide user-friendly error message for missing/inaccessible source DB
-  - [ ] Error message: "Source database does not exist or access denied. Please verify your API key and source endpoint configuration."
-  - [ ] Add unit tests for source database validation
+- [x] Add source database existence check before starting clone operation
+  - [x] Implement `validate_source_database()` function (using `client.exists()`)
+  - [x] Check if source database exists and is accessible
+  - [x] Provide user-friendly error message for missing/inaccessible source DB
+  - [x] Error message: "Source database does not exist or access denied. Please verify your API key and source endpoint configuration."
+  - [x] Add unit tests for source database validation
 
 **Destination API Authentication Handling**:
 
-- [ ] Add authentication error handling for destination operations
-  - [ ] Wrap `pytd.table.Table(dest_client, dest_db, tbl_name)` access with try-catch
-  - [ ] Handle write operation authentication errors
-  - [ ] Provide user-friendly error message for authentication issues
-  - [ ] Error message: "Access denied to destination. Please verify your API key and destination endpoint configuration."
-  - [ ] Add unit tests for authentication error handling
+- [x] Add authentication error handling for destination operations
+  - [x] Wrap `pytd.table.Table(dest_client, dest_db, tbl_name)` access with try-catch
+  - [x] Handle write operation authentication errors
+  - [x] Provide user-friendly error message for authentication issues
+  - [x] Error message: "Authentication failed for destination table. Please verify your API key and destination endpoint configuration."
+  - [x] Add unit tests for authentication error handling
 
 #### Code Structure Improvements
 
-- [ ] Refactor error handling into dedicated functions
-  - [ ] Create `validate_source_access()` function
-  - [ ] Create `validate_destination_access()` function  
-  - [ ] Create `handle_authentication_error()` function
-  - [ ] Improve separation of concerns in main clone function
+- [x] Refactor error handling into dedicated functions
+  - [x] Create `validate_source_database()` function (using proper `client.exists()`)
+  - [x] Remove unnecessary destination validation (handled at operation time)
+  - [x] Improve separation of concerns in main clone function
+  - [x] Remove unnecessary client initialization error handling
 
 #### Testing and Documentation
 
-- [ ] Add comprehensive tests for all new error scenarios
-  - [ ] Test source database not found scenarios
-  - [ ] Test authentication failure scenarios  
-  - [ ] Test skip-existing and overwrite behaviors
-  - [ ] Test edge cases and error combinations
+- [x] Add comprehensive tests for all new error scenarios
+  - [x] Test source database not found scenarios
+  - [x] Test authentication failure scenarios  
+  - [x] Test skip-existing and overwrite behaviors
+  - [x] Test edge cases and error combinations
 
-- [ ] Update documentation
-  - [ ] Update `docs/interface.md` with new options and behaviors
-  - [ ] Update README.md with enhanced examples
-  - [ ] Update command help text and docstrings
+- [x] Update documentation
+  - [x] Update `docs/interface.md` with new options and behaviors
+  - [x] Update command help text and docstrings
+  - [x] Update README.md with enhanced examples
 
 ### Phase 2: Performance and Reliability Enhancements (Future)
 

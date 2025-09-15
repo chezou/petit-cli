@@ -25,7 +25,7 @@ class Site(str, Enum):
     ap03 = "ap03"
 
 
-def get_api_endpoint(endpoint: str = None, site: str = "aws") -> str:
+def get_api_endpoint(endpoint: str | None = None, site: str = "aws") -> str:
     """Get API endpoint based on endpoint or site."""
     if endpoint:
         return endpoint
@@ -107,7 +107,7 @@ def save_incremental_parquet(job: tdclient.models.Job, output_path: Path, chunk_
             logger.info(f"Parquet file saved successfully: {total_rows} total rows written to {output_path}")
 
 
-def fetch_table(db_name: str, table_name: str, endpoint: str = None, site: str = "aws") -> pd.DataFrame:
+def fetch_table(db_name: str, table_name: str, endpoint: str | None = None, site: str = "aws") -> pd.DataFrame:
     """Fetch a table from the database."""
     api_endpoint = get_api_endpoint(endpoint, site)
 
@@ -142,7 +142,7 @@ def fetch_table_incremental(
     db_name: str,
     table_name: str,
     output_path: Path,
-    endpoint: str = None,
+    endpoint: str | None = None,
     site: str = "aws",
     chunk_size: int = 10000,
 ) -> bool:
