@@ -1,5 +1,7 @@
 # Petit CLI
 
+[![CI](https://github.com/chezou/petit-cli/workflows/CI/badge.svg)](https://github.com/chezou/petit-cli/actions/workflows/ci.yml)
+
 Tiny tools for Treasure Data operations - A unified CLI for common TD data management tasks.
 
 ## 🌟 New Features (v0.1.0)
@@ -327,11 +329,15 @@ This project uses modern Python tooling:
 ### Development Setup
 
 ```bash
+# Clone repository
+git clone https://github.com/chezou/petit-cli
+cd petit-cli
+
 # Install dependencies
 uv sync --dev
 
 # Run tests with coverage
-uv run pytest
+uv run pytest --cov=petit_cli
 
 # Code quality checks
 uv run ruff format        # Format code
@@ -339,8 +345,20 @@ uv run ruff check         # Lint code
 uv run pyright           # Type checking
 
 # All quality checks at once
-uv run ruff format && uv run ruff check && uv run pyright && uv run pytest
+uv run ruff format && uv run ruff check && uv run pyright && uv run pytest --cov=petit_cli
 ```
+
+### Continuous Integration
+
+Every pull request and push is automatically tested with:
+
+- **Multi-Python support**: Tested on Python 3.11 and 3.12
+- **Type safety**: Full pyright type checking with 0 errors
+- **Code quality**: Ruff linting and formatting checks  
+- **Test coverage**: 86% coverage with comprehensive test scenarios
+- **Cross-platform**: Automated testing on Ubuntu (GitHub Actions)
+
+See [.github/workflows/ci.yml](.github/workflows/ci.yml) for complete CI configuration.
 
 ### Running Tests
 
