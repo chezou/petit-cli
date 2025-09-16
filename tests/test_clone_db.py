@@ -448,3 +448,137 @@ class TestCopyTable:
         # Should not call query or write operations (skips like before)
         mock_src_client.query.assert_not_called()
         mock_writer.write_dataframe.assert_not_called()
+
+
+class TestDryRunMode:
+    """Test dry-run mode functionality."""
+
+    @patch("petit_cli.commands.clone_db.pytd.Client")
+    def test_dry_run_mode_basic(self, mock_pytd_client):
+        """Test basic dry-run mode functionality."""
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+
+        # Setup mocks
+        mock_src_client = MagicMock()
+        mock_dest_client = MagicMock()
+
+        # Create mock table objects
+        mock_table1 = MagicMock()
+        mock_table1.name = "table1"
+        mock_table1.count = 1000
+
+        mock_table2 = MagicMock()
+        mock_table2.name = "table2"
+        mock_table2.count = 500
+
+        # Setup source client to return tables
+        mock_src_client.list_tables.return_value = [mock_table1, mock_table2]
+
+        # Setup destination client - table1 exists, table2 doesn't
+        def mock_exists(db, table_name):
+            return table_name == "table1"
+
+        mock_dest_client.exists.side_effect = mock_exists
+
+        # Mock client creation - first call for source, second for dest
+        mock_pytd_client.side_effect = [mock_src_client, mock_dest_client]
+
+        # Mock environment variables
+        with patch.dict(os.environ, {"SOURCE_API_KEY": "source_key", "DEST_API_KEY": "dest_key"}):
+            # Test dry-run mode with SKIP action
+            result = runner.invoke(
+                app, ["clone-db", "source_db", "--new-db", "dest_db", "--skip-existing", "--dry-run"]
+            )
+
+        # Should exit successfully
+        assert result.exit_code == 0
+
+        # Should show dry-run analysis output
+        assert "🔍 DRY RUN: Analyzing clone operation..." in result.stdout
+        assert "📊 Source: source_db" in result.stdout
+        assert "📋 Destination: dest_db" in result.stdout
+        assert "table1" in result.stdout
+        assert "table2" in result.stdout
+        assert "SKIP (already exists)" in result.stdout
+        assert "CREATE" in result.stdout
+        assert "💡 To execute this operation, run the same command without --dry-run" in result.stdout
+
+        # Should not actually perform any copy operations
+        mock_src_client.query.assert_not_called()
+
+    @patch("petit_cli.commands.clone_db.pytd.Client")
+    def test_dry_run_mode_overwrite_warning(self, mock_pytd_client):
+        """Test dry-run mode shows warnings for overwrite operations."""
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+
+        # Setup mocks
+        mock_src_client = MagicMock()
+        mock_dest_client = MagicMock()
+
+        # Create mock table that exists in destination
+        mock_table = MagicMock()
+        mock_table.name = "existing_table"
+        mock_table.count = 2000
+
+        mock_src_client.list_tables.return_value = [mock_table]
+        mock_dest_client.exists.return_value = True  # Table exists
+
+        mock_pytd_client.side_effect = [mock_src_client, mock_dest_client]
+
+        # Mock environment variables
+        with patch.dict(os.environ, {"SOURCE_API_KEY": "source_key", "DEST_API_KEY": "dest_key"}):
+            # Test dry-run mode with OVERWRITE action
+            result = runner.invoke(app, ["clone-db", "source_db", "--new-db", "dest_db", "--overwrite", "--dry-run"])
+
+        # Should exit successfully
+        assert result.exit_code == 0
+
+        # Should show overwrite warnings
+        assert "🔥 existing_table" in result.stdout
+        assert "OVERWRITE (data loss possible)" in result.stdout
+        assert "⚠️  1 table(s) will be OVERWRITTEN" in result.stdout
+
+        # Should not actually perform any operations
+        mock_src_client.query.assert_not_called()
+
+    @patch("petit_cli.commands.clone_db.pytd.Client")
+    def test_dry_run_mode_error_scenario(self, mock_pytd_client):
+        """Test dry-run mode shows errors for conflicting tables."""
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+
+        # Setup mocks
+        mock_src_client = MagicMock()
+        mock_dest_client = MagicMock()
+
+        # Create mock table that exists in destination
+        mock_table = MagicMock()
+        mock_table.name = "conflicting_table"
+        mock_table.count = 1500
+
+        mock_src_client.list_tables.return_value = [mock_table]
+        mock_dest_client.exists.return_value = True  # Table exists
+
+        mock_pytd_client.side_effect = [mock_src_client, mock_dest_client]
+
+        # Mock environment variables
+        with patch.dict(os.environ, {"SOURCE_API_KEY": "source_key", "DEST_API_KEY": "dest_key"}):
+            # Test dry-run mode with ERROR action (default)
+            result = runner.invoke(app, ["clone-db", "source_db", "--new-db", "dest_db", "--dry-run"])
+
+        # Should exit successfully (dry-run doesn't fail)
+        assert result.exit_code == 0
+
+        # Should show error scenario
+        assert "❌ conflicting_table" in result.stdout
+        assert "ERROR (already exists, will fail)" in result.stdout
+        assert "❌ 1 table(s) will cause ERRORS" in result.stdout
+        assert "💡 To proceed with existing tables, use --skip-existing or --overwrite" in result.stdout
+
+        # Should not actually perform any operations
+        mock_src_client.query.assert_not_called()

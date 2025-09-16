@@ -1,5 +1,7 @@
 """Export Treasure Data query results to Parquet format."""
 
+from __future__ import annotations
+
 import logging
 import os
 from enum import Enum
@@ -8,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-import tdclient
+import tdclient  # type: ignore[import-untyped]
 import typer
 from tqdm.auto import tqdm
 
@@ -47,7 +49,7 @@ def save_as_parquet(df: pd.DataFrame, output_path: Path) -> None:
     logger.info(f"DataFrame saved as Parquet at {output_path}")
 
 
-def save_incremental_parquet(job: tdclient.models.Job, output_path: Path, chunk_size: int = 10000) -> None:
+def save_incremental_parquet(job: tdclient.models.Job, output_path: Path, chunk_size: int = 10000) -> None:  # type: ignore[name-defined]
     """Save query results incrementally to a Parquet file to avoid memory issues."""
     logger.info(f"Starting incremental save to {output_path}")
 
@@ -70,7 +72,7 @@ def save_incremental_parquet(job: tdclient.models.Job, output_path: Path, chunk_
 
             if len(chunk_data) >= chunk_size:
                 # Create DataFrame for this chunk
-                chunk_df = pd.DataFrame(chunk_data, columns=columns)
+                chunk_df = pd.DataFrame(chunk_data, columns=columns)  # type: ignore[arg-type]
 
                 # Convert to Arrow table
                 table = pa.Table.from_pandas(chunk_df)
@@ -90,7 +92,7 @@ def save_incremental_parquet(job: tdclient.models.Job, output_path: Path, chunk_
 
         # Write remaining data
         if chunk_data:
-            chunk_df = pd.DataFrame(chunk_data, columns=columns)
+            chunk_df = pd.DataFrame(chunk_data, columns=columns)  # type: ignore[arg-type]
             table = pa.Table.from_pandas(chunk_df)
 
             if writer is None:
@@ -128,7 +130,8 @@ def fetch_table(db_name: str, table_name: str, endpoint: str | None = None, site
             logger.info("Job succeeded.")
             data = job.result_format("msgpack", store_tmpfile=True, num_threads=4)
             logger.info("Data fetched successfully.")
-            return pd.DataFrame(data, columns=[s[0] for s in job.result_schema])
+            columns = [s[0] for s in job.result_schema] if job.result_schema else []
+            return pd.DataFrame(data, columns=columns)  # type: ignore[arg-type]
         else:
             logger.error(f"Job failed: {job.status()}")
             raise typer.Exit(1)

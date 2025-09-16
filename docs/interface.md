@@ -1,8 +1,15 @@
-# Petit CLI - Command Line Interface Specification
+# Petit CLI - Command Line Interface Specification (v0.1.0)
 
 ## Overview
 
-This document defines the command-line interface for Petit CLI tools, designed to be executed via `uvx` from a Git repository.
+This document defines the command-line interface for Petit CLI tools, designed to be executed via `uvx` from a Git repository. Version 0.1.0 introduces enhanced user experience features, performance optimizations, and robust error handling.
+
+### New Features in v0.1.0
+
+- **🔍 Dry-run Mode**: Preview operations before execution
+- **📊 Progress Reporting**: Real-time progress bars with ETA
+- **⚡ Performance Tuning**: Configurable parallel processing
+- **🛡️ Enhanced Safety**: Improved validation and error handling
 
 ## Installation and Execution
 
@@ -31,24 +38,50 @@ uvx --from git+https://github.com/chezou/petit-cli petit-cli clone-db [OPTIONS] 
 
 #### Options
 
+**Basic Configuration**:
 - `--se, --source-endpoint TEXT`: Source Treasure Data endpoint URL  
   Default: `https://api.treasuredata.com/`
 - `--de, --dest-endpoint TEXT`: Destination Treasure Data endpoint URL  
   Default: `https://api.treasuredata.com/`
 - `--new-db TEXT`: New database name in destination  
   Default: Same as source database name
+
+**Table Handling** (mutually exclusive):
 - `--skip-existing`: Skip tables that already exist in destination
 - `--overwrite`: Overwrite existing tables in destination  
   Note: Cannot be used together with `--skip-existing`
+
+**Operation Control**:
+- `--dry-run`: Preview operations without execution  
+  Shows detailed analysis of what would be created, skipped, or overwritten
+- `--progress/--no-progress`: Enable/disable progress bars  
+  Default: `--progress` (enabled)
+
+**Performance Tuning**:
+- `--table-parallelism INTEGER`: Number of tables to process concurrently  
+  Default: `2`, Range: `1-8`
+- `--download-parallelism INTEGER`: Parallel downloads per table  
+  Default: `4`, Range: `1-16`  
+- `--chunk-size INTEGER`: Rows per chunk for memory efficiency  
+  Default: `10000`, Range: `1000-100000`
+
+**Other**:
 - `--help`: Show help message and exit
 
 #### Table Handling Behavior
 
-**Default Behavior** (no flags): If a table already exists in the destination database, the operation will skip copying that table and log a warning message.
+**Default Behavior** (no flags): If a table already exists in the destination database, the operation will fail with a clear error message and guidance on using `--skip-existing` or `--overwrite` flags.
 
 **With --skip-existing**: Explicitly skip tables that already exist in destination with appropriate logging messages.
 
-**With --overwrite**: Replace existing tables in destination with data from source tables.
+**With --overwrite**: Replace existing tables with source data. **⚠️ Warning**: This permanently deletes existing data.
+
+**With --dry-run**: Preview all operations without making changes. Shows detailed analysis:
+
+- ✅ Tables to be created (new tables)
+- ⏭️ Tables to be skipped (with `--skip-existing`)  
+- ⚠️ Tables to be overwritten (with `--overwrite`, includes data loss warnings)
+- ❌ Tables that would cause errors (with resolution guidance)
 
 **Mutual Exclusion**: The `--skip-existing` and `--overwrite` flags cannot be used together.
 
@@ -56,6 +89,37 @@ uvx --from git+https://github.com/chezou/petit-cli petit-cli clone-db [OPTIONS] 
 
 - `SOURCE_API_KEY` (required): API key for source Treasure Data instance
 - `DEST_API_KEY` (required): API key for destination Treasure Data instance
+
+#### Performance Guidelines
+
+**Default Settings**:
+
+- `--table-parallelism 2`: Process 2 tables simultaneously
+- `--download-parallelism 4`: Use 4 parallel download threads per table  
+- `--chunk-size 100000`: Process 100,000 rows per chunk
+- `--progress`: Progress reporting enabled by default
+
+**General Recommendations**:
+
+- **Start with defaults**: The default settings are balanced for most use cases
+- **Use `--dry-run` first**: Always preview operations to understand the workload
+- **Monitor system resources**: Adjust parallelism based on available CPU, memory, and network
+- **Consider API rate limits**: Treasure Data APIs have rate limits; excessive parallelism may cause failures
+
+**Tuning Guidelines**:
+
+- **Reduce parallelism**: Use `--table-parallelism 1` if experiencing memory constraints or API rate limits
+- **Increase chunk size**: Consider larger `--chunk-size` values (e.g., 200000) for very large tables to reduce API calls
+- **Disable progress**: Use `--no-progress` in automated environments or when output cleanliness is important
+- **Network-limited environments**: Reduce `--download-parallelism` to minimize concurrent connections
+
+**Note**: Optimal settings depend on your specific network bandwidth, system resources, and Treasure Data instance performance. Start with defaults and adjust incrementally based on observed performance.
+
+#### Validation Features
+
+- **Pre-execution validation**: Source database accessibility, API authentication
+- **During execution**: Automatic retry, progress tracking, memory management
+- **Error recovery**: Individual table failures don't stop entire operation
 
 #### Examples
 
