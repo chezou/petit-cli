@@ -1,13 +1,23 @@
 # Petit CLI
 
+[![CI](https://github.com/chezou/petit-cli/workflows/CI/badge.svg)](https://github.com/chezou/petit-cli/actions/workflows/ci.yml)
+
 Tiny tools for Treasure Data operations - A unified CLI for common TD data management tasks.
+
+## 🌟 New Features (v0.1.0)
+
+- **🔍 Dry-run Mode**: Preview operations before execution with detailed analysis
+- **📊 Progress Reporting**: Real-time progress bars with ETA for long-running operations  
+- **⚡ Performance Optimization**: Configurable parallel processing for large datasets
+- **🛡️ Enhanced Error Handling**: Clear validation and user-friendly error messages
+- **🔒 Type Safety**: Complete type checking with pyright for robust code quality
 
 ## Overview
 
 Petit CLI provides convenient command-line tools for working with Treasure Data:
 
 - **td2parquet**: Export TD tables to Parquet format with incremental processing
-- **clone-db**: Clone/copy entire databases between TD instances
+- **clone-db**: Clone/copy entire databases between TD instances with advanced options
 
 ## Installation
 
@@ -107,27 +117,75 @@ SOURCE_API_KEY=src_key DEST_API_KEY=dest_key petit-cli clone-db [OPTIONS] DATABA
 
 #### Options
 
-- `--se, --source-endpoint TEXT`: Source TD endpoint URL (default: https://api.treasuredata.com/)
-- `--de, --dest-endpoint TEXT`: Destination TD endpoint URL (default: https://api.treasuredata.com/)
+**Basic Options**:
+- `--se, --source-endpoint TEXT`: Source TD endpoint URL (default: <https://api.treasuredata.com/>)
+- `--de, --dest-endpoint TEXT`: Destination TD endpoint URL (default: <https://api.treasuredata.com/>)
 - `--new-db TEXT`: New database name in destination (default: same as source)
+
+**Table Handling** (mutually exclusive):
+- `--skip-existing`: Skip tables that already exist in destination
+- `--overwrite`: Overwrite existing tables in destination
+
+**Advanced Options**:
+- `--dry-run`: Preview operations without execution (shows what would be created/skipped/overwritten)
+- `--progress / --no-progress`: Show/hide progress bars (default: enabled)
+- `--table-parallelism INTEGER`: Number of tables to process concurrently (default: 2)
+- `--download-parallelism INTEGER`: Parallel downloads per table (default: 4)
+- `--chunk-size INTEGER`: Rows per chunk for memory efficiency (default: 10000)
+
+**Other**:
 - `--help`: Show help message
 
 #### Examples
 
+**Basic Operations**:
+
 ```bash
-# Clone to same endpoint with different database name
+# Preview operation before execution (recommended!)
+SOURCE_API_KEY=key DEST_API_KEY=key petit-cli clone-db prod_data --new-db test_data --dry-run
+
+# Basic database cloning with progress bars
 SOURCE_API_KEY=key DEST_API_KEY=key petit-cli clone-db prod_data --new-db test_data
 
+# Skip existing tables during cloning
+SOURCE_API_KEY=key DEST_API_KEY=key petit-cli clone-db prod_data --new-db backup_data --skip-existing
+
+# Overwrite existing tables with confirmation
+SOURCE_API_KEY=key DEST_API_KEY=key petit-cli clone-db prod_data --new-db backup_data --overwrite
+```
+
+**Performance Optimization**:
+
+```bash
+# High-performance cloning for large databases
+SOURCE_API_KEY=key DEST_API_KEY=key petit-cli clone-db large_db --new-db large_db_copy \
+  --table-parallelism 4 \
+  --download-parallelism 8 \
+  --chunk-size 50000
+
+# Memory-efficient cloning for resource-constrained environments
+SOURCE_API_KEY=key DEST_API_KEY=key petit-cli clone-db huge_db --new-db huge_db_copy \
+  --table-parallelism 1 \
+  --download-parallelism 2 \
+  --chunk-size 5000
+```
+
+**Cross-Region and Multi-Instance**:
+
+```bash
 # Clone between different TD instances
 SOURCE_API_KEY=prod_key DEST_API_KEY=dev_key petit-cli clone-db marketing_data \
   --de https://api.treasuredata.co.jp \
   --new-db marketing_data_copy
 
-# Clone to different region
+# Clone to different region with performance tuning
 SOURCE_API_KEY=us_key DEST_API_KEY=eu_key petit-cli clone-db user_data \
   --se https://api.treasuredata.com/ \
   --de https://api.eu01.treasuredata.com/ \
-  --new-db user_data_eu
+  --new-db user_data_eu \
+  --overwrite \
+  --table-parallelism 3 \
+  --no-progress  # For automated scripts
 ```
 
 ## Environment Variables
@@ -141,23 +199,70 @@ SOURCE_API_KEY=us_key DEST_API_KEY=eu_key petit-cli clone-db user_data \
 - `SOURCE_API_KEY`: API key for source Treasure Data instance
 - `DEST_API_KEY`: API key for destination Treasure Data instance
 
+## 🚀 Best Practices
+
+### clone-db Best Practices
+
+1. **Always use dry-run first**: Preview operations before execution
+   ```bash
+   petit-cli clone-db my_database --new-db my_copy --dry-run
+   ```
+
+2. **Optimize for your data size**:
+   - **Small databases** (< 100 tables): Use defaults
+   - **Medium databases** (100-1000 tables): `--table-parallelism 4`
+   - **Large databases** (1000+ tables): `--table-parallelism 2 --download-parallelism 8`
+
+3. **Handle existing destinations**:
+   - **Development**: Use `--skip-existing` to avoid conflicts
+   - **Backup restore**: Use `--overwrite` with caution
+   - **Never use both flags together**
+
+4. **Monitor progress**: Keep `--progress` enabled for long operations (default)
+
+5. **Memory optimization**: Reduce `--chunk-size` if encountering memory issues
+
+### td2parquet Best Practices
+
+1. **Use incremental processing** for large tables (enabled by default)
+2. **Adjust chunk size** based on available memory and table size
+3. **Choose appropriate sites** when working across regions
+
 ## Features
 
-### td2parquet Features
+### 🔍 Advanced Operations
+
+- **Dry-run Mode**: Preview all operations before execution with detailed analysis
+- **Progress Reporting**: Real-time progress bars with ETA and completion tracking
+- **Smart Error Handling**: Clear validation messages and user-friendly error guidance
+- **Robust Retry Logic**: Built-in retry mechanisms for transient network failures
+
+### 📊 Performance Features
+
+- **Configurable Parallelism**: Tune table-level and download-level concurrency
+- **Memory-Efficient Processing**: Chunked data streaming to handle large datasets
+- **Optimized Transfers**: Parallel downloads with customizable chunk sizes
+- **Resource Management**: Configurable resource usage for different environments
+
+### 🛡️ Safety Features
+
+- **Pre-execution Validation**: Source database and authentication checks
+- **Conflict Resolution**: Skip existing tables or overwrite with warnings
+- **Data Loss Prevention**: Clear warnings for destructive operations
+- **Operation Logging**: Comprehensive logging for audit trails
+
+### td2parquet Specific
 
 - **Incremental Processing**: Handles large datasets by processing in configurable chunks
-- **Time-based Filtering**: Export data within specific time ranges
 - **Flexible Output**: Customizable output directory and file naming
-- **Memory Efficient**: Streams data to avoid memory issues with large tables
-- **Progress Tracking**: Visual progress bars for long-running exports
+- **Multi-Site Support**: Compatible with all TD regions (AWS, Tokyo, EU, AP)
 
-### clone-db Features
+### clone-db Specific
 
-- **Parallel Processing**: Copies multiple tables concurrently for faster cloning
-- **Cross-instance Support**: Clone between different TD regions/endpoints
-- **Database Creation**: Automatically creates destination database if needed
-- **Error Handling**: Skips existing tables and handles connection errors gracefully
-- **Flexible Naming**: Specify different destination database names
+- **Parallel Table Processing**: Concurrent table copying with progress tracking
+- **Cross-Instance Support**: Clone between different TD sites and accounts
+- **Flexible Destination Handling**: Skip, overwrite, or error on existing tables
+- **Performance Tuning**: Configurable parallelism and chunk sizes
 
 ## Performance Considerations
 
@@ -216,25 +321,44 @@ export LOG_LEVEL=DEBUG
 This project uses modern Python tooling:
 
 - **Package Manager**: [uv](https://docs.astral.sh/uv/)
-- **Testing**: pytest with comprehensive unit tests
-- **Code Quality**: ruff for formatting and linting
+- **Testing**: pytest with comprehensive unit tests (86% coverage)
+- **Code Quality**: ruff for formatting and linting + pyright for type checking
 - **CLI Framework**: Typer for type-safe command interfaces
+- **Progress Tracking**: tqdm for user-friendly progress bars
 
 ### Development Setup
 
 ```bash
+# Clone repository
+git clone https://github.com/chezou/petit-cli
+cd petit-cli
+
 # Install dependencies
 uv sync --dev
 
-# Run tests
-uv run pytest
+# Run tests with coverage
+uv run pytest --cov=petit_cli
 
-# Format code
-uv run ruff format
+# Code quality checks
+uv run ruff format        # Format code
+uv run ruff check         # Lint code  
+uv run pyright           # Type checking
 
-# Lint code
-uv run ruff check
+# All quality checks at once
+uv run ruff format && uv run ruff check && uv run pyright && uv run pytest --cov=petit_cli
 ```
+
+### Continuous Integration
+
+Every pull request and push is automatically tested with:
+
+- **Multi-Python support**: Tested on Python 3.11 and 3.12
+- **Type safety**: Full pyright type checking with 0 errors
+- **Code quality**: Ruff linting and formatting checks  
+- **Test coverage**: 86% coverage with comprehensive test scenarios
+- **Cross-platform**: Automated testing on Ubuntu (GitHub Actions)
+
+See [.github/workflows/ci.yml](.github/workflows/ci.yml) for complete CI configuration.
 
 ### Running Tests
 
@@ -249,6 +373,15 @@ Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ## Version
 
-Current version: 0.0.1
+Current version: 0.1.0 (Milestone 2 - Enhanced UX & Reliability)
+
+**What's New in v0.1.0**:
+
+- 🔍 Dry-run mode for operation preview
+- 📊 Real-time progress reporting with ETA
+- ⚡ Configurable parallel processing
+- 🛡️ Enhanced error handling and validation
+- 🔒 Complete type safety with pyright
+- 📈 86% test coverage with comprehensive scenarios
 
 Use `petit-cli --version` to check the installed version.
