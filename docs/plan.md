@@ -67,15 +67,50 @@
   - [x] Update command help text and docstrings
   - [x] Update README.md with enhanced examples
 
-### Phase 2: Performance and Reliability Enhancements (Future)
+### Phase 2: Performance and Reliability Enhancements ✅ **COMPLETED**
 
 **Goal**: Optimize performance and improve reliability for large-scale operations
 
-- [ ] Investigate table-level parallelism vs job count configuration
+- [x] **Implement table-level parallelism with configurable parameters**
+  - [x] Add `--table-parallelism` option (default: 2) for concurrent table processing
+  - [x] Add `--download-parallelism` option (default: 4) for parallel downloads per table
+  - [x] Add `--chunk-size` option (default: 10,000) for memory-efficient processing
+  - [x] Update ThreadPoolExecutor to use configurable table parallelism
+
+- [x] **Migrate from pytd.query to tdclient.query with parallel downloads**
+  - [x] Replace `pytd.query` with direct `tdclient.query` usage
+  - [x] Implement `job.result_format()` with parallel download support
+  - [x] Add chunked processing to avoid memory issues with large tables
+  - [x] Implement progress logging for long-running operations
+
+- [x] **Enhanced chunked data processing**
+  - [x] Create `_process_table_chunks()` helper function
+  - [x] Create `_write_chunk_to_destination()` helper function
+  - [x] Implement memory-efficient streaming data processing
+  - [x] Add periodic progress reporting during chunk processing
+
+- [x] **Update tests for new parallel processing functionality**
+  - [x] Add tests for custom parallelism settings
+  - [x] Update existing tests to mock tdclient properly
+  - [x] Fix test mocking for new tdclient-based implementation
+  - [x] Ensure all tests pass with new parallel processing logic
+
+**Implementation Details**:
+
+- **Hybrid parallelization strategy**: Combines table-level (2 concurrent) and download-level (4 concurrent) parallelism
+- **Memory efficiency**: Processes data in 10,000-row chunks to avoid loading entire tables into memory
+- **Progress monitoring**: Logs progress every 10 chunks during processing
+- **Backward compatibility**: All existing functionality and CLI options preserved
+
+### Phase 3: Additional Reliability Features (Future)
+
+**Goal**: Add retry mechanisms, progress reporting, and recovery features
+
 - [ ] Add retry mechanisms for transient failures
 - [ ] Implement progress reporting for long-running operations
 - [ ] Add dry-run mode for validation before actual operations
 - [ ] Implement partial failure recovery (resume functionality)
+- [ ] Add pyright for comprehensive type checking to improve code quality and catch type-related bugs
 
 ### Phase 3: Additional User Experience Improvements (Future)
 

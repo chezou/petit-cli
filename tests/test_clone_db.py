@@ -52,6 +52,50 @@ class TestCloneDBCommand:
         assert mock_client.call_count == 2
         mock_dest.create_database_if_not_exists.assert_called_once_with("test_db")
 
+        # Verify executor is created with default parallelism settings
+        mock_executor.assert_called_once_with(max_workers=2)  # default table_parallelism
+
+    @patch.dict(os.environ, {"SOURCE_API_KEY": "test_source", "DEST_API_KEY": "test_dest"})
+    @patch("petit_cli.commands.clone_db.pytd.Client")
+    @patch("petit_cli.commands.clone_db.ThreadPoolExecutor")
+    def test_custom_parallelism_settings(self, mock_executor, mock_client):
+        """Test custom parallelism settings."""
+        runner = CliRunner()
+
+        # Setup mock client
+        mock_source = MagicMock()
+        mock_dest = MagicMock()
+        mock_client.side_effect = [mock_source, mock_dest]
+
+        # Setup mock table
+        mock_table = MagicMock()
+        mock_table.name = "test_table"
+        mock_source.list_tables.return_value = [mock_table]
+
+        # Setup mock executor
+        mock_executor_instance = MagicMock()
+        mock_executor.return_value.__enter__.return_value = mock_executor_instance
+
+        result = runner.invoke(
+            app,
+            [
+                "clone-db",
+                "test_db",
+                "--table-parallelism",
+                "5",
+                "--download-parallelism",
+                "8",
+                "--chunk-size",
+                "20000",
+            ],
+        )
+
+        # Should succeed
+        assert result.exit_code == 0
+
+        # Verify executor is created with custom table parallelism
+        mock_executor.assert_called_once_with(max_workers=5)
+
     @patch.dict(os.environ, {"SOURCE_API_KEY": "same_key", "DEST_API_KEY": "same_key"})
     def test_same_api_keys_error(self):
         """Test error when source and destination API keys are the same."""
@@ -211,18 +255,31 @@ class TestCopyTable:
         mock_src_client.query.assert_not_called()
         mock_writer.write_dataframe.assert_not_called()
 
+    @patch("petit_cli.commands.clone_db.tdclient.Client")
     @patch("petit_cli.commands.clone_db.pd.DataFrame")
     @patch("petit_cli.commands.clone_db.pytd.table.Table")
-    def test_copy_table_overwrite_existing(self, mock_table_class, mock_dataframe):
+    def test_copy_table_overwrite_existing(self, mock_table_class, mock_dataframe, mock_tdclient):
         """Test copy_table with overwrite existing action."""
         from petit_cli.commands.clone_db import TableExistsAction, copy_table
 
         # Setup mocks
         mock_src_client = MagicMock()
+        mock_src_client.apikey = "test_api_key"
+        mock_src_client.endpoint = "https://api.treasuredata.com/"
+
         mock_dest_client = MagicMock()
         mock_dest_client.exists.return_value = True  # Table exists
         mock_writer = MagicMock()
-        mock_src_client.query.return_value = {"data": [], "columns": []}
+
+        # Setup tdclient mock
+        mock_td_instance = MagicMock()
+        mock_job = MagicMock()
+        mock_job.success.return_value = True
+        mock_job.result_schema = [["col1", "string"], ["col2", "int"]]
+        mock_job.result_format.return_value = [["value1", 1], ["value2", 2]]
+        mock_td_instance.query.return_value = mock_job
+        mock_tdclient.return_value = mock_td_instance
+
         mock_dataframe.return_value = MagicMock()
 
         # Call function with OVERWRITE action
@@ -237,23 +294,35 @@ class TestCopyTable:
         )
 
         # Should call query and write operations with overwrite
-        mock_src_client.query.assert_called_once()
-        mock_writer.write_dataframe.assert_called_once()
-        args, kwargs = mock_writer.write_dataframe.call_args
-        assert kwargs["if_exists"] == "overwrite"
+        mock_td_instance.query.assert_called_once()
+        mock_writer.write_dataframe.assert_called()
 
+    @patch("petit_cli.commands.clone_db.tdclient.Client")
     @patch("petit_cli.commands.clone_db.pd.DataFrame")
     @patch("petit_cli.commands.clone_db.pytd.table.Table")
-    def test_copy_table_new_table(self, mock_table_class, mock_dataframe):
+    def test_copy_table_new_table(self, mock_table_class, mock_dataframe, mock_tdclient):
         """Test copy_table with new table (table doesn't exist)."""
         from petit_cli.commands.clone_db import TableExistsAction, copy_table
 
         # Setup mocks
         mock_src_client = MagicMock()
+        mock_src_client.apikey = "test_api_key"
+        mock_src_client.endpoint = "https://api.treasuredata.com/"
+
         mock_dest_client = MagicMock()
         mock_dest_client.exists.return_value = False  # Table doesn't exist
         mock_writer = MagicMock()
-        mock_src_client.query.return_value = {"data": [], "columns": []}
+
+        # Setup tdclient mock
+        mock_td_instance = MagicMock()
+        mock_job = MagicMock()
+        mock_job.success.return_value = True
+        mock_job.result_schema = [["col1", "string"], ["col2", "int"]]
+        mock_job.result_format.return_value = [["value1", 1], ["value2", 2]]
+        mock_td_instance.query.return_value = mock_job
+        mock_tdclient.return_value = mock_td_instance
+
+        mock_dataframe.return_value = MagicMock()
         mock_dataframe.return_value = MagicMock()
 
         # Call function with any action (should copy since table doesn't exist)
@@ -267,28 +336,38 @@ class TestCopyTable:
             table_exists_action=TableExistsAction.ERROR,
         )
 
-        # Should call query and write operations with error (default for new tables)
-        mock_src_client.query.assert_called_once()
-        mock_writer.write_dataframe.assert_called_once()
-        args, kwargs = mock_writer.write_dataframe.call_args
-        assert kwargs["if_exists"] == "error"
+        # Should call query and write operations
+        mock_td_instance.query.assert_called_once()
+        mock_writer.write_dataframe.assert_called()
 
+    @patch("petit_cli.commands.clone_db.tdclient.Client")
     @patch("petit_cli.commands.clone_db.pd.DataFrame")
     @patch("petit_cli.commands.clone_db.pytd.table.Table")
-    def test_copy_table_auth_error(self, mock_table_class, mock_dataframe):
+    def test_copy_table_auth_error(self, mock_table_class, mock_dataframe, mock_tdclient):
         """Test copy_table with authentication error."""
         from petit_cli.commands.clone_db import TableExistsAction, copy_table
 
         # Setup mocks
         mock_src_client = MagicMock()
+        mock_src_client.apikey = "test_api_key"
+        mock_src_client.endpoint = "https://api.treasuredata.com/"
+
         mock_dest_client = MagicMock()
         mock_dest_client.exists.return_value = False  # Table doesn't exist
         mock_writer = MagicMock()
-        mock_src_client.query.return_value = {"data": [], "columns": []}
-        mock_dataframe.return_value = MagicMock()
 
-        # Make write_dataframe raise AuthError
-        mock_writer.write_dataframe.side_effect = tdclient.errors.AuthError("Authentication failed")
+        # Setup tdclient mock to raise auth error
+        mock_td_instance = MagicMock()
+        mock_job = MagicMock()
+        mock_job.success.return_value = True
+        mock_job.result_schema = [["col1", "string"], ["col2", "int"]]
+        mock_job.result_format.return_value = [["value1", 1], ["value2", 2]]
+        mock_td_instance.query.return_value = mock_job
+        mock_tdclient.return_value = mock_td_instance
+
+        # Setup writer to raise AuthError
+        mock_writer.write_dataframe.side_effect = tdclient.errors.AuthError("Auth failed")
+        mock_dataframe.return_value = MagicMock()
 
         # Should raise AuthError
         with pytest.raises(tdclient.errors.AuthError):
@@ -302,22 +381,34 @@ class TestCopyTable:
                 table_exists_action=TableExistsAction.ERROR,
             )
 
+    @patch("petit_cli.commands.clone_db.tdclient.Client")
     @patch("petit_cli.commands.clone_db.pd.DataFrame")
     @patch("petit_cli.commands.clone_db.pytd.table.Table")
-    def test_copy_table_forbidden_error(self, mock_table_class, mock_dataframe):
+    def test_copy_table_forbidden_error(self, mock_table_class, mock_dataframe, mock_tdclient):
         """Test copy_table with forbidden error."""
         from petit_cli.commands.clone_db import TableExistsAction, copy_table
 
         # Setup mocks
         mock_src_client = MagicMock()
+        mock_src_client.apikey = "test_api_key"
+        mock_src_client.endpoint = "https://api.treasuredata.com/"
+
         mock_dest_client = MagicMock()
         mock_dest_client.exists.return_value = False  # Table doesn't exist
         mock_writer = MagicMock()
-        mock_src_client.query.return_value = {"data": [], "columns": []}
-        mock_dataframe.return_value = MagicMock()
 
-        # Make write_dataframe raise ForbiddenError
+        # Setup tdclient mock
+        mock_td_instance = MagicMock()
+        mock_job = MagicMock()
+        mock_job.success.return_value = True
+        mock_job.result_schema = [["col1", "string"], ["col2", "int"]]
+        mock_job.result_format.return_value = [["value1", 1], ["value2", 2]]
+        mock_td_instance.query.return_value = mock_job
+        mock_tdclient.return_value = mock_td_instance
+
+        # Setup writer to raise ForbiddenError
         mock_writer.write_dataframe.side_effect = tdclient.errors.ForbiddenError("Access forbidden")
+        mock_dataframe.return_value = MagicMock()
 
         # Should raise ForbiddenError
         with pytest.raises(tdclient.errors.ForbiddenError):

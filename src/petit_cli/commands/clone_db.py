@@ -7,6 +7,7 @@ from enum import Enum
 
 import pandas as pd
 import pytd
+import tdclient
 import tdclient.errors
 import typer
 
@@ -50,6 +51,21 @@ def clone_db_command(
         False,
         "--overwrite",
         help="Overwrite existing tables in destination",
+    ),
+    table_parallelism: int = typer.Option(
+        2,
+        "--table-parallelism",
+        help="Number of tables to process in parallel",
+    ),
+    download_parallelism: int = typer.Option(
+        4,
+        "--download-parallelism",
+        help="Number of parallel download threads per table",
+    ),
+    chunk_size: int = typer.Option(
+        100_000,
+        "--chunk-size",
+        help="Number of rows to process in each chunk",
     ),
 ):
     """Clone/copy databases between Treasure Data instances.
@@ -105,7 +121,7 @@ def clone_db_command(
     logger.info(f"Creating database {new_db} in destination if not exists")
     dest_client.create_database_if_not_exists(new_db)
 
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=table_parallelism) as executor:
         for t in source_client.list_tables():
             executor.submit(
                 copy_table,
@@ -116,6 +132,8 @@ def clone_db_command(
                 dest_client=dest_client,
                 writer=writer,
                 table_exists_action=table_exists_action,
+                download_parallelism=download_parallelism,
+                chunk_size=chunk_size,
             )
 
     logger.warning(f"Complete clone DB {database}")
@@ -142,6 +160,8 @@ def copy_table(
     dest_client: pytd.Client,
     writer: pytd.writer.Writer,
     table_exists_action: TableExistsAction = TableExistsAction.ERROR,
+    download_parallelism: int = 4,
+    chunk_size: int = 100_000,
 ):
     """Copy a single table from source to destination.
 
@@ -153,6 +173,8 @@ def copy_table(
         dest_client: Destination pytd.Client
         writer: pytd.writer.Writer instance
         table_exists_action: Action to take when table already exists
+        download_parallelism: Number of parallel download threads
+        chunk_size: Number of rows to process in each chunk
     """
     src = f"{src_db}.{tbl_name}"
     dest = f"{dest_db}.{tbl_name}"
@@ -171,14 +193,21 @@ def copy_table(
     logger.warning(f"Start writing from {src} to {dest}")
 
     try:
-        # To avoid api-presto hostname issue on dev, use `force_tdclient`
-        df = pd.DataFrame(**src_client.query(f"select * from {src}", force_tdclient=True))
-        table = pytd.table.Table(dest_client, dest_db, tbl_name)
-        if_exists_param = "overwrite" if table_exists_action == TableExistsAction.OVERWRITE else "error"
+        td_client = tdclient.Client(apikey=src_client.apikey, endpoint=src_client.endpoint, retry_post_requests=True)
+        job = td_client.query(src_db, f"SELECT * FROM {src_db}.{tbl_name}", type="presto")
+        job.wait()
 
-        writer.write_dataframe(df, table, if_exists=if_exists_param, fmt="msgpack")
+        if not job.success():
+            logger.error(f"Query job failed for table {src}: {job.debug['stderr']}")
+            raise Exception(f"Query failed for table {src}")
 
-        del df
+        logger.info(f"Query completed for {src}, starting chunked data processing")
+
+        # Process data in chunks using parallel download
+        _process_table_chunks(
+            job, dest_client, dest_db, tbl_name, writer, table_exists_action, download_parallelism, chunk_size
+        )
+
         logger.warning(f"Finish writing to {dest}")
 
     except tdclient.errors.AuthError as e:
@@ -201,3 +230,84 @@ def copy_table(
     except Exception as e:
         logger.error(f"Failed to copy table {src} to {dest}: {e}")
         raise
+
+
+def _process_table_chunks(
+    job: tdclient.models.Job,
+    dest_client: pytd.Client,
+    dest_db: str,
+    tbl_name: str,
+    writer: pytd.writer.Writer,
+    table_exists_action: TableExistsAction,
+    download_parallelism: int,
+    chunk_size: int,
+) -> None:
+    """Process table data in chunks using parallel download."""
+    # Get column names from schema
+    columns = [s[0] for s in job.result_schema]
+    logger.info(f"Table schema: {columns}")
+
+    # Get data iterator with parallel download
+    data_iter = job.result_format("msgpack", store_tmpfile=True, num_threads=download_parallelism)
+
+    dest = f"{dest_db}.{tbl_name}"
+    table = pytd.table.Table(dest_client, dest_db, tbl_name)
+    if_exists_param = "overwrite" if table_exists_action == TableExistsAction.OVERWRITE else "error"
+
+    # Process data in chunks to avoid memory issues
+    chunk_data = []
+    total_rows = 0
+    chunk_count = 0
+
+    for row in data_iter:
+        chunk_data.append(row)
+
+        if len(chunk_data) >= chunk_size:
+            _write_chunk_to_destination(
+                chunk_data,
+                columns,
+                table,
+                writer,
+                if_exists_param if chunk_count == 0 else "append",
+                download_parallelism,
+            )
+            total_rows += len(chunk_data)
+            chunk_count += 1
+
+            if chunk_count % 10 == 0:  # Log progress every 10 chunks
+                logger.info(f"Processed {total_rows} rows for {dest}")
+
+            chunk_data = []
+
+    # Write remaining data
+    if chunk_data:
+        _write_chunk_to_destination(
+            chunk_data,
+            columns,
+            table,
+            writer,
+            if_exists_param if chunk_count == 0 else "append",
+            download_parallelism,
+        )
+        total_rows += len(chunk_data)
+
+    logger.info(f"Completed processing {total_rows} total rows for {dest}")
+
+
+def _write_chunk_to_destination(
+    chunk_data: list,
+    columns: list[str],
+    table: pytd.table.Table,
+    writer: pytd.writer.Writer,
+    if_exists: str,
+    max_workers: int = 4,
+) -> None:
+    """Write a chunk of data to the destination table."""
+    # Create DataFrame for this chunk
+    chunk_df = pd.DataFrame(chunk_data, columns=columns)
+
+    # Write chunk to destination
+    writer.write_dataframe(chunk_df, table, if_exists=if_exists, fmt="msgpack", max_workers=max_workers)
+
+    # Clean up
+    del chunk_df
