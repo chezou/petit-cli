@@ -200,6 +200,7 @@ def trigger_workflow_command(
         if attempt:
             typer.echo("✓ Workflow triggered successfully")
             typer.echo(f"  Workflow ID: {workflow_id}")
+            typer.echo(f"  Session ID: {attempt.session_id}")
             typer.echo(f"  Attempt ID: {attempt.id}")
             logger.info(f"Workflow {workflow_id} triggered with attempt ID {attempt.id}")
 
