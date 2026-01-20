@@ -3,8 +3,10 @@
 import os
 from unittest.mock import MagicMock, patch
 
+import pytest
 from typer.testing import CliRunner
 
+from petit_cli.commands.trigger_workflow import get_console_url
 from petit_cli.main import app
 
 
@@ -30,9 +32,10 @@ class TestTriggerWorkflowCommand:
         mock_instance = MagicMock()
         mock_client.return_value = mock_instance
 
-        # Setup mock Attempt object with id attribute
+        # Setup mock Attempt object with id and session_id attributes
         mock_attempt = MagicMock()
-        mock_attempt.id = "attempt_12345"
+        mock_attempt.id = 99999
+        mock_attempt.session_id = 67890
         mock_instance.start_attempt.return_value = mock_attempt
 
         result = runner.invoke(app, ["trigger-workflow", "12345"])
@@ -40,7 +43,9 @@ class TestTriggerWorkflowCommand:
         assert result.exit_code == 0
         assert "Workflow triggered successfully" in result.stdout
         assert "Workflow ID: 12345" in result.stdout
-        assert "Attempt ID: attempt_12345" in result.stdout
+        assert "Session ID: 67890" in result.stdout
+        assert "Attempt ID: 99999" in result.stdout
+        assert "Console URL: https://console.treasuredata.com/app/workflows/12345/sessions/67890/attempt/99999" in result.stdout
         mock_instance.start_attempt.assert_called_once_with(12345)
 
     @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
@@ -456,3 +461,74 @@ class TestTriggerWorkflowCommand:
 
         assert result.exit_code == 1
         assert "Error: Network error" in result.stderr
+
+
+class TestGetConsoleUrl:
+    """Test the get_console_url function."""
+
+    def test_production_endpoint(self):
+        """Test console URL generation for production endpoint."""
+        api_endpoint = "api-workflow.treasuredata.com"
+        workflow_id = 12345
+        session_id = 67890
+        attempt_id = 11111
+
+        result = get_console_url(api_endpoint, workflow_id, session_id, attempt_id)
+
+        assert result == "https://console.treasuredata.com/app/workflows/12345/sessions/67890/attempt/11111"
+
+    def test_production_endpoint_with_region(self):
+        """Test console URL generation for production endpoint with region."""
+        api_endpoint = "api-workflow.us01.treasuredata.com"
+        workflow_id = 12345
+        session_id = 67890
+        attempt_id = 22222
+
+        result = get_console_url(api_endpoint, workflow_id, session_id, attempt_id)
+
+        assert result == "https://console.us01.treasuredata.com/app/workflows/12345/sessions/67890/attempt/22222"
+
+    def test_development_endpoint(self):
+        """Test console URL generation for development endpoint."""
+        api_endpoint = "api-development-workflow.us01.treasuredata.com"
+        workflow_id = 33613511
+        session_id = 68444649
+        attempt_id = 74441698
+
+        result = get_console_url(api_endpoint, workflow_id, session_id, attempt_id)
+
+        assert result == "https://console-development.us01.treasuredata.com/app/workflows/33613511/sessions/68444649/attempt/74441698"
+
+    def test_staging_endpoint(self):
+        """Test console URL generation for staging endpoint."""
+        api_endpoint = "api-staging-workflow.eu01.treasuredata.com"
+        workflow_id = 99999
+        session_id = 11111
+        attempt_id = 33333
+
+        result = get_console_url(api_endpoint, workflow_id, session_id, attempt_id)
+
+        assert result == "https://console-staging.eu01.treasuredata.com/app/workflows/99999/sessions/11111/attempt/33333"
+
+    def test_japan_production_endpoint(self):
+        """Test console URL generation for Japan production endpoint."""
+        api_endpoint = "api-workflow.treasuredata.co.jp"
+        workflow_id = 54321
+        session_id = 98765
+        attempt_id = 44444
+
+        result = get_console_url(api_endpoint, workflow_id, session_id, attempt_id)
+
+        assert result == "https://console.treasuredata.co.jp/app/workflows/54321/sessions/98765/attempt/44444"
+
+    def test_unexpected_format(self):
+        """Test console URL generation for unexpected endpoint format."""
+        api_endpoint = "custom-endpoint.example.com"
+        workflow_id = 12345
+        session_id = 67890
+        attempt_id = 55555
+
+        result = get_console_url(api_endpoint, workflow_id, session_id, attempt_id)
+
+        # Should fallback to prepending 'console-'
+        assert result == "https://console-custom-endpoint.example.com/app/workflows/12345/sessions/67890/attempt/55555"

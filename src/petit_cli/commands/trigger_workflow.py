@@ -34,6 +34,36 @@ def get_api_endpoint(endpoint: str | None = None) -> str:
     return "api-workflow.treasuredata.com"
 
 
+def get_console_url(api_endpoint: str, workflow_id: int, session_id: int, attempt_id: int) -> str:
+    """Generate console URL from API endpoint.
+
+    Args:
+        api_endpoint: The API endpoint (e.g., 'api-workflow.us01.treasuredata.com')
+        workflow_id: The workflow ID
+        session_id: The session ID
+        attempt_id: The attempt ID
+
+    Returns:
+        Console URL for the workflow attempt
+    """
+    # Convert API endpoint to console endpoint
+    # Handle non-production environments (e.g., api-development-workflow -> console-development)
+    if api_endpoint.startswith("api-"):
+        # Remove 'api-' prefix
+        parts = api_endpoint[4:]  # Remove 'api-'
+        if parts.startswith("workflow."):
+            # Production: api-workflow.domain -> console.domain (no dash after console)
+            console_endpoint = "console." + parts[9:]  # Remove 'workflow.'
+        else:
+            # Non-production: api-{env}-workflow.domain -> console-{env}.domain
+            console_endpoint = "console-" + parts.replace("-workflow.", ".", 1)
+    else:
+        # Fallback: just prepend 'console-' if format is unexpected
+        console_endpoint = "console-" + api_endpoint
+
+    return f"https://{console_endpoint}/app/workflows/{workflow_id}/sessions/{session_id}/attempt/{attempt_id}"
+
+
 def display_attempt_status(attempt: Attempt) -> None:
     """Display attempt status information.
 
@@ -202,6 +232,11 @@ def trigger_workflow_command(
             typer.echo(f"  Workflow ID: {workflow_id}")
             typer.echo(f"  Session ID: {attempt.session_id}")
             typer.echo(f"  Attempt ID: {attempt.id}")
+
+            # Generate and display console URL
+            console_url = get_console_url(api_endpoint, workflow_id, attempt.session_id, attempt.id)
+            typer.echo(f"  Console URL: {console_url}")
+
             logger.info(f"Workflow {workflow_id} triggered with attempt ID {attempt.id}")
 
             # Wait for completion if requested
