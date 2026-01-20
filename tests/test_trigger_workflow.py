@@ -45,7 +45,10 @@ class TestTriggerWorkflowCommand:
         assert "Workflow ID: 12345" in result.stdout
         assert "Session ID: 67890" in result.stdout
         assert "Attempt ID: 99999" in result.stdout
-        assert "Console URL: https://console.treasuredata.com/app/workflows/12345/sessions/67890/attempt/99999" in result.stdout
+        assert (
+            "Console URL: https://console.treasuredata.com/app/workflows/12345/sessions/67890/attempt/99999"
+            in result.stdout
+        )
         mock_instance.start_attempt.assert_called_once_with(12345)
 
     @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
@@ -497,7 +500,10 @@ class TestGetConsoleUrl:
 
         result = get_console_url(api_endpoint, workflow_id, session_id, attempt_id)
 
-        assert result == "https://console-development.us01.treasuredata.com/app/workflows/33613511/sessions/68444649/attempt/74441698"
+        assert (
+            result
+            == "https://console-development.us01.treasuredata.com/app/workflows/33613511/sessions/68444649/attempt/74441698"
+        )
 
     def test_staging_endpoint(self):
         """Test console URL generation for staging endpoint."""
@@ -508,7 +514,9 @@ class TestGetConsoleUrl:
 
         result = get_console_url(api_endpoint, workflow_id, session_id, attempt_id)
 
-        assert result == "https://console-staging.eu01.treasuredata.com/app/workflows/99999/sessions/11111/attempt/33333"
+        assert (
+            result == "https://console-staging.eu01.treasuredata.com/app/workflows/99999/sessions/11111/attempt/33333"
+        )
 
     def test_japan_production_endpoint(self):
         """Test console URL generation for Japan production endpoint."""
@@ -544,7 +552,9 @@ class TestIsQueueFullError:
 
     def test_400_client_error(self):
         """Test detection of 400 Client Error."""
-        error = Exception("400 Client Error: Bad Request for url: https://api-development-workflow.treasuredata.com/api/attempts")
+        error = Exception(
+            "400 Client Error: Bad Request for url: https://api-development-workflow.treasuredata.com/api/attempts"
+        )
         assert is_queue_full_error(error) is True
 
     def test_combined_error_message(self):
