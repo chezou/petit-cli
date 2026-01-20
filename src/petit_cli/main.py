@@ -6,6 +6,7 @@ import typer
 
 from .commands.clone_db import clone_db_command
 from .commands.td2parquet import td2parquet_command
+from .commands.trigger_workflow import trigger_workflow_command
 
 app = typer.Typer(
     name="petit-cli",
@@ -39,6 +40,7 @@ def main(
 # Register commands
 app.command("clone-db")(clone_db_command)
 app.command("td2parquet")(td2parquet_command)
+app.command("trigger-workflow")(trigger_workflow_command)
 
 if __name__ == "__main__":
     app()
