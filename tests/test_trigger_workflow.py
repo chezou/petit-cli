@@ -381,3 +381,78 @@ class TestTriggerWorkflowCommand:
         assert result.exit_code == 0
         # Verify client was initialized with endpoint WITHOUT http://
         mock_client.assert_called_once_with(apikey="test_api_key", endpoint="api-workflow.treasuredata.co.jp")
+
+    @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
+    @patch("petit_cli.commands.trigger_workflow.Client")
+    def test_wait_keyboard_interrupt(self, mock_client):
+        """Test KeyboardInterrupt handling during wait."""
+        runner = CliRunner()
+
+        # Setup mock client
+        mock_instance = MagicMock()
+        mock_client.return_value = mock_instance
+
+        # Setup mock Attempt object
+        mock_attempt = MagicMock()
+        mock_attempt.id = "attempt_12345"
+        mock_attempt.done = False
+        mock_attempt.status = "running"
+        mock_instance.start_attempt.return_value = mock_attempt
+
+        # Simulate KeyboardInterrupt during wait
+        mock_instance.wait_attempt.side_effect = KeyboardInterrupt()
+
+        result = runner.invoke(app, ["trigger-workflow", "12345", "--wait"])
+
+        assert result.exit_code == 0
+        assert "Stopped waiting" in result.stdout
+        assert "Workflow is still running" in result.stdout
+
+    @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
+    @patch("petit_cli.commands.trigger_workflow.Client")
+    def test_wait_workflow_still_running(self, mock_client):
+        """Test --wait when workflow is still running after wait_attempt."""
+        runner = CliRunner()
+
+        # Setup mock client
+        mock_instance = MagicMock()
+        mock_client.return_value = mock_instance
+
+        # Setup mock Attempt object that's still running
+        mock_attempt = MagicMock()
+        mock_attempt.id = "attempt_12345"
+        mock_attempt.done = False
+        mock_attempt.status = "running"
+        mock_instance.start_attempt.return_value = mock_attempt
+        mock_instance.wait_attempt.return_value = mock_attempt
+
+        result = runner.invoke(app, ["trigger-workflow", "12345", "--wait"])
+
+        assert result.exit_code == 0
+        assert "Workflow is still running" in result.stdout
+        assert "Done: False" in result.stdout
+
+    def test_check_attempt_missing_api_key(self):
+        """Test --check-attempt with missing API key."""
+        runner = CliRunner()
+
+        with patch.dict(os.environ, {}, clear=True):
+            result = runner.invoke(app, ["trigger-workflow", "--check-attempt", "67890"])
+            assert result.exit_code == 2
+            assert "Missing TD_API_KEY environment variable" in result.stderr
+
+    @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
+    @patch("petit_cli.commands.trigger_workflow.Client")
+    def test_check_attempt_exception(self, mock_client):
+        """Test exception handling in check_attempt_status."""
+        runner = CliRunner()
+
+        # Setup mock client that raises an exception
+        mock_instance = MagicMock()
+        mock_client.return_value = mock_instance
+        mock_instance.attempt.side_effect = Exception("Network error")
+
+        result = runner.invoke(app, ["trigger-workflow", "--check-attempt", "67890"])
+
+        assert result.exit_code == 1
+        assert "Error: Network error" in result.stderr

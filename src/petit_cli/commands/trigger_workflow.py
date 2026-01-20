@@ -76,6 +76,22 @@ def wait_for_attempt(client: Client, attempt: Attempt, wait_interval: int = 5) -
         return attempt
 
 
+def get_api_key() -> str:
+    """Get API key from environment variable.
+
+    Returns:
+        The API key from TD_API_KEY environment variable
+
+    Raises:
+        typer.Exit: With code 2 if TD_API_KEY is not set
+    """
+    try:
+        return os.environ["TD_API_KEY"]
+    except KeyError:
+        typer.echo("Error: Missing TD_API_KEY environment variable", err=True)
+        raise typer.Exit(2)
+
+
 def check_attempt_status(
     attempt_id: str,
     endpoint: str | None = None,
@@ -86,12 +102,8 @@ def check_attempt_status(
         attempt_id: The ID of the attempt to check
         endpoint: Custom endpoint URL (optional)
     """
-    # Get API key from environment
-    try:
-        apikey = os.environ["TD_API_KEY"]
-    except KeyError:
-        typer.echo("Error: Missing TD_API_KEY environment variable", err=True)
-        raise typer.Exit(2)
+    # Get API key from environment (exits with code 2 if missing)
+    apikey = get_api_key()
 
     # Get endpoint
     api_endpoint = get_api_endpoint(endpoint)
@@ -122,6 +134,9 @@ def check_attempt_status(
             logger.error(f"Attempt {attempt_id} not found")
             raise typer.Exit(1)
 
+    except typer.Exit:
+        # Re-raise typer.Exit to preserve exit codes
+        raise
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
         logger.error(f"Error checking attempt {attempt_id}: {e}")
@@ -162,12 +177,9 @@ def trigger_workflow_command(
     if workflow_id is None:
         typer.echo("Error: workflow_id is required when not using --check-attempt", err=True)
         raise typer.Exit(1)
-    # Get API key from environment
-    try:
-        apikey = os.environ["TD_API_KEY"]
-    except KeyError:
-        typer.echo("Error: Missing TD_API_KEY environment variable", err=True)
-        raise typer.Exit(2)
+
+    # Get API key from environment (exits with code 2 if missing)
+    apikey = get_api_key()
 
     # Get endpoint
     api_endpoint = get_api_endpoint(endpoint)
@@ -212,6 +224,9 @@ def trigger_workflow_command(
             logger.error(f"Failed to trigger workflow {workflow_id}")
             raise typer.Exit(1)
 
+    except typer.Exit:
+        # Re-raise typer.Exit to preserve exit codes
+        raise
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
         logger.error(f"Error triggering workflow {workflow_id}: {e}")
