@@ -243,7 +243,6 @@ def trigger_workflow_command(
         max_delay = 16  # seconds
         retry_start_time = time.time()
         attempt = None
-        last_exception = None
 
         while True:
             try:
@@ -251,7 +250,6 @@ def trigger_workflow_command(
                 attempt = client.start_attempt(workflow_id)
                 break  # Success, exit retry loop
             except Exception as e:
-                last_exception = e
                 elapsed_time = time.time() - retry_start_time
 
                 # Check if this is a retryable error and we haven't exceeded max duration

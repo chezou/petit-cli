@@ -3,7 +3,6 @@
 import os
 from unittest.mock import MagicMock, patch
 
-import pytest
 from typer.testing import CliRunner
 
 from petit_cli.commands.trigger_workflow import get_console_url, is_queue_full_error
