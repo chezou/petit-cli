@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 
 import typer
 from tdworkflow.attempt import Attempt  # type: ignore[import-untyped]
@@ -122,6 +123,19 @@ def get_api_key() -> str:
         raise typer.Exit(2)
 
 
+def is_queue_full_error(exception: Exception) -> bool:
+    """Check if an exception is due to queue being full.
+
+    Args:
+        exception: The exception to check
+
+    Returns:
+        True if the error is due to too many attempts running
+    """
+    error_message = str(exception)
+    return "Too many attempts running" in error_message or "400 Client Error" in error_message
+
+
 def check_attempt_status(
     attempt_id: str,
     endpoint: str | None = None,
@@ -219,12 +233,46 @@ def trigger_workflow_command(
         logger.info(f"Connecting to Treasure Data API at {api_endpoint}")
         client = Client(apikey=apikey, endpoint=api_endpoint)
 
-        # Trigger the workflow
+        # Trigger the workflow with retry logic for queue full errors
         logger.info(f"Triggering workflow ID: {workflow_id}")
         typer.echo(f"Triggering workflow {workflow_id}...")
 
-        # Start the workflow (returns an Attempt object)
-        attempt = client.start_attempt(workflow_id)
+        # Retry configuration: exponential backoff up to 1 minute total
+        max_retry_duration = 60  # seconds
+        initial_delay = 1  # second
+        max_delay = 16  # seconds
+        retry_start_time = time.time()
+        attempt = None
+        last_exception = None
+
+        while True:
+            try:
+                # Start the workflow (returns an Attempt object)
+                attempt = client.start_attempt(workflow_id)
+                break  # Success, exit retry loop
+            except Exception as e:
+                last_exception = e
+                elapsed_time = time.time() - retry_start_time
+
+                # Check if this is a retryable error and we haven't exceeded max duration
+                if is_queue_full_error(e) and elapsed_time < max_retry_duration:
+                    # Calculate delay with exponential backoff
+                    # Delay doubles each time: 1, 2, 4, 8, 16, 16, ...
+                    retry_count = int((time.time() - retry_start_time) / initial_delay)
+                    delay = min(initial_delay * (2**retry_count), max_delay)
+
+                    # Don't wait longer than the remaining time budget
+                    remaining_time = max_retry_duration - elapsed_time
+                    delay = min(delay, remaining_time)
+
+                    if delay > 0:
+                        typer.echo(f"⚠ Queue is full, retrying in {delay:.1f} seconds...")
+                        logger.warning(f"Queue full error, retrying after {delay}s: {e}")
+                        time.sleep(delay)
+                        continue
+
+                # Not retryable or exceeded max duration
+                raise
 
         # Display result
         if attempt:

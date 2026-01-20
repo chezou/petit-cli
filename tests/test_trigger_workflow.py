@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from petit_cli.commands.trigger_workflow import get_console_url
+from petit_cli.commands.trigger_workflow import get_console_url, is_queue_full_error
 from petit_cli.main import app
 
 
@@ -532,3 +532,151 @@ class TestGetConsoleUrl:
 
         # Should fallback to prepending 'console-'
         assert result == "https://console-custom-endpoint.example.com/app/workflows/12345/sessions/67890/attempt/55555"
+
+
+class TestIsQueueFullError:
+    """Test the is_queue_full_error function."""
+
+    def test_queue_full_error_message(self):
+        """Test detection of queue full error message."""
+        error = Exception("Too many attempts running. Limit: 180, Current: 250")
+        assert is_queue_full_error(error) is True
+
+    def test_400_client_error(self):
+        """Test detection of 400 Client Error."""
+        error = Exception("400 Client Error: Bad Request for url: https://api-development-workflow.treasuredata.com/api/attempts")
+        assert is_queue_full_error(error) is True
+
+    def test_combined_error_message(self):
+        """Test detection of combined error message."""
+        error = Exception(
+            "400 Client Error: Bad Request for url: https://api-development-workflow.treasuredata.com/api/attempts\n"
+            "Too many attempts running. Limit: 180, Current: 250"
+        )
+        assert is_queue_full_error(error) is True
+
+    def test_non_queue_full_error(self):
+        """Test non-queue-full errors are not detected."""
+        error = Exception("Some other error message")
+        assert is_queue_full_error(error) is False
+
+    def test_different_error_type(self):
+        """Test different error types."""
+        error = Exception("Network timeout occurred")
+        assert is_queue_full_error(error) is False
+
+
+class TestRetryLogic:
+    """Test retry logic for queue full errors."""
+
+    @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
+    @patch("petit_cli.commands.trigger_workflow.Client")
+    @patch("petit_cli.commands.trigger_workflow.time.sleep")
+    def test_retry_on_queue_full(self, mock_sleep, mock_client):
+        """Test retry on queue full error."""
+        runner = CliRunner()
+
+        # Setup mock client
+        mock_instance = MagicMock()
+        mock_client.return_value = mock_instance
+
+        # Setup mock Attempt object
+        mock_attempt = MagicMock()
+        mock_attempt.id = 99999
+        mock_attempt.session_id = 67890
+
+        # First call raises queue full error, second succeeds
+        mock_instance.start_attempt.side_effect = [
+            Exception("400 Client Error: Bad Request\nToo many attempts running. Limit: 180, Current: 250"),
+            mock_attempt,
+        ]
+
+        result = runner.invoke(app, ["trigger-workflow", "12345"])
+
+        assert result.exit_code == 0
+        assert "Queue is full, retrying" in result.stdout
+        assert "Workflow triggered successfully" in result.stdout
+        # Should have called start_attempt twice (1 failure + 1 success)
+        assert mock_instance.start_attempt.call_count == 2
+        # Should have slept at least once
+        assert mock_sleep.call_count >= 1
+
+    @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
+    @patch("petit_cli.commands.trigger_workflow.Client")
+    @patch("petit_cli.commands.trigger_workflow.time.sleep")
+    @patch("petit_cli.commands.trigger_workflow.time.time")
+    def test_retry_gives_up_after_timeout(self, mock_time, mock_sleep, mock_client):
+        """Test retry gives up after max duration."""
+        runner = CliRunner()
+
+        # Setup mock client
+        mock_instance = MagicMock()
+        mock_client.return_value = mock_instance
+
+        # Always raise queue full error
+        mock_instance.start_attempt.side_effect = Exception(
+            "400 Client Error: Bad Request\nToo many attempts running. Limit: 180, Current: 250"
+        )
+
+        # Mock time to simulate exceeding 60 seconds
+        mock_time.side_effect = [0, 0, 5, 10, 20, 35, 55, 65]  # Last call exceeds 60 seconds
+
+        result = runner.invoke(app, ["trigger-workflow", "12345"])
+
+        assert result.exit_code == 1
+        assert "Too many attempts running" in result.stderr or "400 Client Error" in result.stderr
+
+    @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
+    @patch("petit_cli.commands.trigger_workflow.Client")
+    def test_no_retry_on_different_error(self, mock_client):
+        """Test no retry on non-queue-full errors."""
+        runner = CliRunner()
+
+        # Setup mock client
+        mock_instance = MagicMock()
+        mock_client.return_value = mock_instance
+
+        # Raise a different error
+        mock_instance.start_attempt.side_effect = Exception("Network error")
+
+        result = runner.invoke(app, ["trigger-workflow", "12345"])
+
+        assert result.exit_code == 1
+        assert "Error: Network error" in result.stderr
+        # Should have only tried once
+        assert mock_instance.start_attempt.call_count == 1
+
+    @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
+    @patch("petit_cli.commands.trigger_workflow.Client")
+    @patch("petit_cli.commands.trigger_workflow.time.sleep")
+    def test_retry_with_exponential_backoff(self, mock_sleep, mock_client):
+        """Test exponential backoff pattern."""
+        runner = CliRunner()
+
+        # Setup mock client
+        mock_instance = MagicMock()
+        mock_client.return_value = mock_instance
+
+        # Setup mock Attempt object
+        mock_attempt = MagicMock()
+        mock_attempt.id = 99999
+        mock_attempt.session_id = 67890
+
+        # Fail 3 times, then succeed
+        mock_instance.start_attempt.side_effect = [
+            Exception("Too many attempts running"),
+            Exception("Too many attempts running"),
+            Exception("Too many attempts running"),
+            mock_attempt,
+        ]
+
+        result = runner.invoke(app, ["trigger-workflow", "12345"])
+
+        assert result.exit_code == 0
+        # Should have slept 3 times
+        assert mock_sleep.call_count == 3
+        # Verify delays are increasing (exponential backoff)
+        sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
+        # Delays should be increasing or capped at max_delay
+        for i in range(len(sleep_calls) - 1):
+            assert sleep_calls[i] <= sleep_calls[i + 1] or sleep_calls[i + 1] == 16  # max_delay
