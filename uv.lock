@@ -545,6 +545,7 @@ source = { editable = "." }
 dependencies = [
     { name = "pyarrow" },
     { name = "pytd" },
+    { name = "tdworkflow" },
     { name = "tqdm" },
     { name = "typer" },
 ]
@@ -563,6 +564,7 @@ dev = [
 requires-dist = [
     { name = "pyarrow", specifier = ">=21.0.0" },
     { name = "pytd", specifier = ">=2.2.0" },
+    { name = "tdworkflow", specifier = ">=0.9.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "typer", specifier = ">=0.17.4" },
 ]
@@ -809,6 +811,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fc/aa/9ef3cd3074a4f64dd8e8e436e0723b57db7865b700c568a392e47192a907/td_client-1.5.0.tar.gz", hash = "sha256:9c2180b7815e6db245932df24c0afb30f76950f3d31bb48f44ef3e669bfa559d", size = 44457, upload-time = "2025-08-14T05:49:17.782Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f7/55/95f28865fb75ae1eec3e672a950a2f1d89e96a1bde9ea97fd3f1cde709cd/td_client-1.5.0-py3-none-any.whl", hash = "sha256:1f09f607d2a030f41b301921c09cf1876d02d64c20a0ad371453ff9daed51e64", size = 56275, upload-time = "2025-08-14T05:49:16.356Z" },
+]
+
+[[package]]
+name = "tdworkflow"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "mypy-extensions" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/21/bd/23f442d041db9bd397f5547246e51d5652c4bc31340805725ff4dd6e598e/tdworkflow-0.9.0.tar.gz", hash = "sha256:44ec28daceff9c41336318687da0330dcf813aae9c83cf87b1bac045830be96a", size = 34354, upload-time = "2024-04-20T19:20:20.626Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1f/f8/f6ca0046343e8b2a1a13342867ef770d4d1d18da1e3aaa65ca7f7936fbdb/tdworkflow-0.9.0-py3-none-any.whl", hash = "sha256:6991e1a72f62060d1ce9b6cc03ed30d6143a58ac8869c733491d01d4d9579e71", size = 35441, upload-time = "2024-04-20T19:20:18.584Z" },
 ]
 
 [[package]]

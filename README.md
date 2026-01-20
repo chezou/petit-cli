@@ -18,6 +18,7 @@ Petit CLI provides convenient command-line tools for working with Treasure Data:
 
 - **td2parquet**: Export TD tables to Parquet format with incremental processing
 - **clone-db**: Clone/copy entire databases between TD instances with advanced options
+- **trigger-workflow**: Trigger Treasure Data Workflows by workflow ID
 
 ## Installation
 
@@ -34,6 +35,12 @@ TD_API_KEY=your_api_key uvx --from git+https://github.com/chezou/petit-cli petit
 
 # Clone database
 SOURCE_API_KEY=src_key DEST_API_KEY=dest_key uvx --from git+https://github.com/chezou/petit-cli petit-cli clone-db source_db --new-db destination_db
+
+# Trigger workflow
+TD_API_KEY=your_api_key uvx --from git+https://github.com/chezou/petit-cli petit-cli trigger-workflow 12345
+
+# Trigger workflow (Japan region)
+TD_API_KEY=your_api_key uvx --from git+https://github.com/chezou/petit-cli petit-cli trigger-workflow 12345 --endpoint api-workflow.treasuredata.co.jp
 ```
 
 ### Local Development
@@ -188,6 +195,80 @@ SOURCE_API_KEY=us_key DEST_API_KEY=eu_key petit-cli clone-db user_data \
   --no-progress  # For automated scripts
 ```
 
+### trigger-workflow
+
+Trigger Treasure Data Workflows by workflow ID.
+
+#### Usage
+
+```bash
+TD_API_KEY=your_api_key petit-cli trigger-workflow [OPTIONS] WORKFLOW_ID
+```
+
+#### Arguments
+
+- `WORKFLOW_ID`: ID of the workflow to trigger (integer)
+
+#### Options
+
+- `--endpoint TEXT`: Custom TD endpoint URL (optional)
+- `--wait`: Wait for the workflow to complete (polls status until done)
+- `--wait-interval INTEGER`: Seconds between status checks when waiting (default: 5)
+- `--check-attempt TEXT`: Check status of a specific attempt ID
+- `--help`: Show help message
+
+#### Examples
+
+**Triggering Workflows:**
+
+```bash
+# Basic workflow trigger (uses default US workflow endpoint)
+TD_API_KEY=your_key petit-cli trigger-workflow 12345
+
+# Trigger and wait for completion
+TD_API_KEY=your_key petit-cli trigger-workflow 12345 --wait
+
+# Trigger with custom wait interval (check every 10 seconds)
+TD_API_KEY=your_key petit-cli trigger-workflow 12345 --wait --wait-interval 10
+
+# Trigger workflow with custom endpoint (Japan region)
+TD_API_KEY=your_key petit-cli trigger-workflow 12345 \
+  --endpoint api-workflow.treasuredata.co.jp
+
+# Trigger workflow with EU endpoint
+TD_API_KEY=your_key petit-cli trigger-workflow 99999 \
+  --endpoint api-workflow.eu01.treasuredata.com
+```
+
+**Checking Attempt Status:**
+
+```bash
+# Check status of a specific attempt
+TD_API_KEY=your_key petit-cli trigger-workflow --check-attempt 67890
+
+# Check attempt with custom endpoint
+TD_API_KEY=your_key petit-cli trigger-workflow --check-attempt 67890 \
+  --endpoint api-workflow.treasuredata.co.jp
+```
+
+#### Notes
+
+- The default endpoint is `api-workflow.treasuredata.com` (US region)
+- Use the appropriate workflow endpoint for your region:
+  - US: `api-workflow.treasuredata.com`
+  - Japan: `api-workflow.treasuredata.co.jp`
+  - EU: `api-workflow.eu01.treasuredata.com`
+  - AP: `api-workflow.ap02.treasuredata.com` or `api-workflow.ap03.treasuredata.com`
+- **URL Schema**: The endpoint should be specified without `https://` or `http://` prefix. If you include it, it will be automatically stripped.
+  - ✓ Correct: `--endpoint api-workflow.treasuredata.co.jp`
+  - ✓ Also works: `--endpoint https://api-workflow.treasuredata.co.jp` (schema is stripped)
+- The `--wait` option will poll the workflow status every 5 seconds (configurable with `--wait-interval`)
+- Press Ctrl+C while waiting to stop polling (the workflow will continue running)
+- Exit codes:
+  - 0: Success (workflow triggered successfully or completed successfully)
+  - 1: Failure (workflow failed or error occurred)
+  - 2: Missing API key
+
 ## Environment Variables
 
 ### Required for td2parquet
@@ -198,6 +279,10 @@ SOURCE_API_KEY=us_key DEST_API_KEY=eu_key petit-cli clone-db user_data \
 
 - `SOURCE_API_KEY`: API key for source Treasure Data instance
 - `DEST_API_KEY`: API key for destination Treasure Data instance
+
+### Required for trigger-workflow
+
+- `TD_API_KEY`: Your Treasure Data API key
 
 ## 🚀 Best Practices
 
