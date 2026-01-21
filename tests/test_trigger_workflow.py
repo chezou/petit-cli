@@ -1,6 +1,7 @@
 """Test cases for trigger-workflow command."""
 
 import os
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from tdworkflow.attempt import Attempt
@@ -262,7 +263,7 @@ class TestTriggerWorkflowCommand:
             done=True,
             success=True,
             status="success",
-            finishedAt="2024-01-20T00:00:00Z"
+            finishedAt=datetime.fromisoformat("2024-01-20T00:00:00+00:00")
         )
         mock_instance.attempt.return_value = attempt
 

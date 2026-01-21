@@ -815,15 +815,15 @@ wheels = [
 
 [[package]]
 name = "tdworkflow"
-version = "0.9.0"
+version = "0.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "mypy-extensions" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/21/bd/23f442d041db9bd397f5547246e51d5652c4bc31340805725ff4dd6e598e/tdworkflow-0.9.0.tar.gz", hash = "sha256:44ec28daceff9c41336318687da0330dcf813aae9c83cf87b1bac045830be96a", size = 34354, upload-time = "2024-04-20T19:20:20.626Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/93/73/52242440005fd2f34bcacf09d795370e665c3d64080c9063d45ceb49d4c2/tdworkflow-0.10.1.tar.gz", hash = "sha256:1a77353251f814c616c4600243f0c26a805089c0b4633ee270eaee1afe56f15c", size = 34940, upload-time = "2026-01-21T04:04:44.512Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1f/f8/f6ca0046343e8b2a1a13342867ef770d4d1d18da1e3aaa65ca7f7936fbdb/tdworkflow-0.9.0-py3-none-any.whl", hash = "sha256:6991e1a72f62060d1ce9b6cc03ed30d6143a58ac8869c733491d01d4d9579e71", size = 35441, upload-time = "2024-04-20T19:20:18.584Z" },
+    { url = "https://files.pythonhosted.org/packages/22/3d/d9578a28be269544c56816f9de5d612fc087c845c4d759b156ad8a479946/tdworkflow-0.10.1-py3-none-any.whl", hash = "sha256:859d21805c5ab79a0d93357a0fd6a47a74963a74b84c902765255d50e0d1a178", size = 35658, upload-time = "2026-01-21T04:04:43.443Z" },
 ]
 
 [[package]]
