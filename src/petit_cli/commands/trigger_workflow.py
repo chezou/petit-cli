@@ -165,6 +165,10 @@ def check_attempt_status(
             typer.echo("✓ Attempt found")
             display_attempt_status(attempt)
 
+            # Generate and display console URL
+            console_url = get_console_url(api_endpoint, attempt.workflow_id, attempt.session_id, attempt.id)
+            typer.echo(f"  Console URL: {console_url}")
+
             # Exit with appropriate code
             if attempt.done:
                 if attempt.success:

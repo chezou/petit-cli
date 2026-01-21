@@ -254,6 +254,8 @@ class TestTriggerWorkflowCommand:
         # Setup mock Attempt object
         mock_attempt = MagicMock()
         mock_attempt.id = "67890"
+        mock_attempt.workflow_id = 12345
+        mock_attempt.session_id = 54321
         mock_attempt.done = True
         mock_attempt.success = True
         mock_attempt.status = "success"
@@ -265,6 +267,7 @@ class TestTriggerWorkflowCommand:
         assert result.exit_code == 0
         assert "Attempt found" in result.stdout
         assert "Status: success" in result.stdout
+        assert "Console URL:" in result.stdout
         mock_instance.attempt.assert_called_once_with(67890)
 
     @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
@@ -280,6 +283,8 @@ class TestTriggerWorkflowCommand:
         # Setup mock Attempt object
         mock_attempt = MagicMock()
         mock_attempt.id = "67890"
+        mock_attempt.workflow_id = 12345
+        mock_attempt.session_id = 54321
         mock_attempt.done = True
         mock_attempt.success = False
         mock_attempt.status = "error"
@@ -289,6 +294,7 @@ class TestTriggerWorkflowCommand:
 
         assert result.exit_code == 1
         assert "Attempt failed" in result.stderr
+        assert "Console URL:" in result.stdout
 
     @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
     @patch("petit_cli.commands.trigger_workflow.Client")
@@ -319,6 +325,8 @@ class TestTriggerWorkflowCommand:
         # Setup mock Attempt object - still running
         mock_attempt = MagicMock()
         mock_attempt.id = "67890"
+        mock_attempt.workflow_id = 12345
+        mock_attempt.session_id = 54321
         mock_attempt.done = False
         mock_attempt.status = "running"
         mock_instance.attempt.return_value = mock_attempt
@@ -328,6 +336,7 @@ class TestTriggerWorkflowCommand:
         assert result.exit_code == 0
         assert "Attempt found" in result.stdout
         assert "Done: False" in result.stdout
+        assert "Console URL:" in result.stdout
 
     @patch.dict(os.environ, {"TD_API_KEY": "test_api_key"})
     @patch("petit_cli.commands.trigger_workflow.Client")
