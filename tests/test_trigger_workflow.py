@@ -3,6 +3,8 @@
 import os
 from unittest.mock import MagicMock, patch
 
+from tdworkflow.attempt import Attempt
+from tdworkflow.workflow import Workflow
 from typer.testing import CliRunner
 
 from petit_cli.commands.trigger_workflow import get_console_url, is_queue_full_error
@@ -251,16 +253,18 @@ class TestTriggerWorkflowCommand:
         mock_instance = MagicMock()
         mock_client.return_value = mock_instance
 
-        # Setup mock Attempt object
-        mock_attempt = MagicMock()
-        mock_attempt.id = "67890"
-        mock_attempt.workflow_id = 12345
-        mock_attempt.session_id = 54321
-        mock_attempt.done = True
-        mock_attempt.success = True
-        mock_attempt.status = "success"
-        mock_attempt.finished_at = "2024-01-20T00:00:00Z"
-        mock_instance.attempt.return_value = mock_attempt
+        # Create real Attempt object with real Workflow
+        workflow = Workflow(id=12345, name="test-workflow")
+        attempt = Attempt(
+            id=67890,
+            sessionId=54321,
+            workflow=workflow,
+            done=True,
+            success=True,
+            status="success",
+            finishedAt="2024-01-20T00:00:00Z"
+        )
+        mock_instance.attempt.return_value = attempt
 
         result = runner.invoke(app, ["trigger-workflow", "--check-attempt", "67890"])
 
@@ -280,15 +284,17 @@ class TestTriggerWorkflowCommand:
         mock_instance = MagicMock()
         mock_client.return_value = mock_instance
 
-        # Setup mock Attempt object
-        mock_attempt = MagicMock()
-        mock_attempt.id = "67890"
-        mock_attempt.workflow_id = 12345
-        mock_attempt.session_id = 54321
-        mock_attempt.done = True
-        mock_attempt.success = False
-        mock_attempt.status = "error"
-        mock_instance.attempt.return_value = mock_attempt
+        # Create real Attempt object with real Workflow
+        workflow = Workflow(id=12345, name="test-workflow")
+        attempt = Attempt(
+            id=67890,
+            sessionId=54321,
+            workflow=workflow,
+            done=True,
+            success=False,
+            status="error"
+        )
+        mock_instance.attempt.return_value = attempt
 
         result = runner.invoke(app, ["trigger-workflow", "--check-attempt", "67890"])
 
@@ -322,14 +328,16 @@ class TestTriggerWorkflowCommand:
         mock_instance = MagicMock()
         mock_client.return_value = mock_instance
 
-        # Setup mock Attempt object - still running
-        mock_attempt = MagicMock()
-        mock_attempt.id = "67890"
-        mock_attempt.workflow_id = 12345
-        mock_attempt.session_id = 54321
-        mock_attempt.done = False
-        mock_attempt.status = "running"
-        mock_instance.attempt.return_value = mock_attempt
+        # Create real Attempt object with real Workflow - still running
+        workflow = Workflow(id=12345, name="test-workflow")
+        attempt = Attempt(
+            id=67890,
+            sessionId=54321,
+            workflow=workflow,
+            done=False,
+            status="running"
+        )
+        mock_instance.attempt.return_value = attempt
 
         result = runner.invoke(app, ["trigger-workflow", "--check-attempt", "67890"])
 
