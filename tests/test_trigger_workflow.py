@@ -263,7 +263,7 @@ class TestTriggerWorkflowCommand:
             done=True,
             success=True,
             status="success",
-            finishedAt=datetime.fromisoformat("2024-01-20T00:00:00+00:00")
+            finishedAt=datetime.fromisoformat("2024-01-20T00:00:00+00:00"),
         )
         mock_instance.attempt.return_value = attempt
 
@@ -287,14 +287,7 @@ class TestTriggerWorkflowCommand:
 
         # Create real Attempt object with real Workflow
         workflow = Workflow(id=12345, name="test-workflow")
-        attempt = Attempt(
-            id=67890,
-            sessionId=54321,
-            workflow=workflow,
-            done=True,
-            success=False,
-            status="error"
-        )
+        attempt = Attempt(id=67890, sessionId=54321, workflow=workflow, done=True, success=False, status="error")
         mock_instance.attempt.return_value = attempt
 
         result = runner.invoke(app, ["trigger-workflow", "--check-attempt", "67890"])
@@ -331,13 +324,7 @@ class TestTriggerWorkflowCommand:
 
         # Create real Attempt object with real Workflow - still running
         workflow = Workflow(id=12345, name="test-workflow")
-        attempt = Attempt(
-            id=67890,
-            sessionId=54321,
-            workflow=workflow,
-            done=False,
-            status="running"
-        )
+        attempt = Attempt(id=67890, sessionId=54321, workflow=workflow, done=False, status="running")
         mock_instance.attempt.return_value = attempt
 
         result = runner.invoke(app, ["trigger-workflow", "--check-attempt", "67890"])
